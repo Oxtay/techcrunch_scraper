@@ -17,15 +17,16 @@ Once the initial project is checked in then create a new branch in git and alter
 article title, article url, company name, company website
 """
 import os
-import sys
 import logging
 import argparse
+import numpy as np
 import pandas as pd
 import mechanize
 
 from datetime import datetime, timedelta
 from dateutil import relativedelta
-from bs4 import BeautifulSoup as bsoup
+from bs4 import BeautifulSoup as bs
+from bs4 import SoupStrainer
 
 TCRUNCH = 'https://techcrunch.com/'
 
@@ -39,6 +40,14 @@ class TechCrunchScraper(object):
         self.start_date = start_date
         self.end_date = end_date
         self.pages_to_scrape = []  # list of pages to scrape
+        self.article_links = []
+
+    def process(self):
+        """
+        One function to call to process from start to finish.
+        """
+        self.get_address()
+        self.get_article_links()
 
     def get_address(self):
         """
@@ -61,13 +70,74 @@ class TechCrunchScraper(object):
             except ValueError:
                 print 'End date is not in correct format. Reverting to default date.'
 
+        if self.start_date > self.end_date:
+            print 'Start date should be an older date than end date'
+            return
+
         delta = self.end_date - self.start_date
         date_list = [(self.start_date+timedelta(days=i)).strftime('%Y/%m/%d') for i in range(delta.days+1)]
 
         for date in date_list:
             self.pages_to_scrape.append(TCRUNCH+date)
 
-        print(self.pages_to_scrape)
+    def get_article_links(self):
+        """
+        From each page, get links to articles in that page
+        """
+        if not self.pages_to_scrape:
+            print 'pages list is empty!'
+            return
+
+        # For now, let's ignore multiple pages of articles per day
+
+        # for page in self.pages_to_scrape:
+        #
+        #     br = mechanize.Browser()
+        #     br.open(page)
+        #     br.select_form(nr=0)
+        #
+        #     # Find out how many pages to read
+        #     soup = bs(br.response().read(), 'html.parser')
+        #     total_articles = int(soup.find('ol', attrs={'class': 'pagination'}))
+        #     num_pages = int(np.ceil(total_articles / 30.0))  # 30 articles per page
+
+        br = mechanize.Browser()
+        for page_link in self.pages_to_scrape:
+
+            print "Fetching links on page: %s" % page_link
+
+            br.open(page_link)
+            page_html = br.response().read()
+            soup = bs(page_html, 'html.parser', parse_only=SoupStrainer('a'))
+            for link in soup:
+                if link.has_attr('href') and link.has_attr('data-omni-sm') and link['data-omni-sm'].startswith('gbl_river_headline'):
+                    self.article_links.append(link['href'])
+            br.close()
+
+    def scrape_article_page(self):
+        """
+        For each article link, find the company info
+        """
+        for article_link in self.article_links:
+            self.get_company_info(article_link)
+
+    @staticmethod
+    def get_company_info(link):
+        """
+        Extracts company info
+        :param link: link to each article
+        :return: list of company info
+        """
+        br = mechanize.Browser()
+        br.open(link)
+        page_html = br.response().read()
+        soup = bs(page_html, 'html.parser', parse_only=SoupStrainer('li', {'class': 'data-card crunchbase-card active'}))
+        for element in soup:
+            if element.has_attr('cb-card-title-link'):
+                print element
+        br.close()
+
+        # return company_info
         return
 
     def save_to_csv(self):
@@ -82,26 +152,28 @@ def parse_arguments(parser):
     """
     Setting the input arguments and options for the main function
     """
-    parser.add_argument("-startdate", "--start-date",
+    parser.add_argument("-startdate",
+                        "--start-date",
                         dest="start_date",
                         default=None,
-                        help="Specifies the beginning date for raw data.\n"
+                        help="Specifies the beginning date for scraping.\n"
                              "For example, for July 30, 2015, enter 2015-07-30")
 
-    parser.add_argument("-enddate", "--end-date",
+    parser.add_argument("-enddate",
+                        "--end-date",
                         dest="end_date",
                         default=None,
-                        help="Specifies the end date for raw data.")
+                        help="Specifies the end date for scraping.")
 
-    parser.add_argument("-dir", "--directory",
+    parser.add_argument("-dir",
+                        "--directory",
                         dest="directory",
                         help="Specifies the destination folder, where the file will be saved.\n"
                              "It will create the folder if it doesn't exist.")
 
     logging.basicConfig(level=logging.DEBUG, format='%(levelname)s\t%(message)s')
 
-    if len(sys.argv) == 1:
-        parser.print_help()
+    parser.print_help()
 
     options = parser.parse_args()
 
@@ -127,6 +199,12 @@ def main():
                                  end_date=options.end_date)
 
     cruncher.get_address()
+    if cruncher.pages_to_scrape is None:
+        return
+    cruncher.get_article_links()
+    cruncher.scrape_article_page()
+
+    return
 
 
 if __name__ == '__main__':
