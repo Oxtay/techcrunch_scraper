@@ -36,7 +36,7 @@ class TechCrunchScraper(object):
     Scraping TechCrunch to retrieve company addresses
     """
     def __init__(self, start_date=None, end_date=None):
-        self.companies_df = pd.DataFrame(columns=['article title', 'article url', 'company name', 'company website'])  # Dataframe to hold company data
+        self.companies_df = pd.DataFrame(columns=['company name', 'company website', 'article title', 'article url'])  # Dataframe to hold company data
         self.start_date = start_date
         self.end_date = end_date
         self.pages_to_scrape = []  # list of pages to scrape
