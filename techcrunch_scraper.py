@@ -1,6 +1,4 @@
 """
-The goal is to
-
 Simple command line app to go to techcrunch.com, read each article and determine
 which company (if any) is the primary subject matter of the article.
 The output of the program will be a csv file with the following:
@@ -37,7 +35,7 @@ class TechCrunchScraper(object):
     Scraping TechCrunch to retrieve company addresses
     """
     def __init__(self, start_date=None, end_date=None):
-        self.companies_df = pd.DataFrame(columns=['company name', 'company website', 'article title', 'article url'])  # Dataframe to hold company data
+        self.companies_df = pd.DataFrame(columns=['article title', 'article url', 'company name', 'company website'])  # Dataframe to hold company data
         self.start_date = start_date
         self.end_date = end_date
         self.pages_to_scrape = []  # list of pages to scrape
