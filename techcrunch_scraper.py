@@ -1,20 +1,9 @@
 """
-The goal is to
-
 Simple command line app to go to techcrunch.com, read each article and determine
 which company (if any) is the primary subject matter of the article.
-The output of the program will be a csv file with the following:
+The output of the program is a csv file with the following:
 
 company name, company website, article title, article url
-
-In the case where the company name and/or website cannot be determined then use n/a in
-place of the name or website. The completed project should be as modular as possible,
-and appropriately unit tested. Code should be appropriately commented. Project should
-be checked into a public git repo under your github account.
-
-Once the initial project is checked in then create a new branch in git and alter the csv format to:
-
-article title, article url, company name, company website
 """
 import os
 import logging
