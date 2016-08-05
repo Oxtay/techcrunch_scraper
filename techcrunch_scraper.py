@@ -31,6 +31,7 @@ from bs4 import SoupStrainer
 TCRUNCH = 'https://techcrunch.com/'
 DEFAULT_FILE = 'company_info.csv'
 
+
 class TechCrunchScraper(object):
     """
     Scraping TechCrunch to retrieve company addresses
@@ -47,7 +48,11 @@ class TechCrunchScraper(object):
         One function to call to process from start to finish.
         """
         self.get_address()
+        if self.pages_to_scrape is None:
+            return
         self.get_article_links()
+        self.scrape_article_page()
+        self.save_to_csv()
 
     def get_address(self):
         """
@@ -160,15 +165,22 @@ class TechCrunchScraper(object):
 
         return company_info
 
-    def save_to_csv(self):
+    def save_to_csv(self, fname=DEFAULT_FILE):
         """
         save the dataframe to CSV
         :return: CSV file
         """
-        self.companies_df.to_csv(DEFAULT_FILE, encoding='utf-8')
+        self.companies_df.to_csv(fname, encoding='utf-8')
 
 
 def safe_list_get(l, idx, default):
+    """
+    Helper function that implements a safe get method for list similar to get method of a dictionary
+    :param l: list
+    :param idx: index in the list
+    :param default: if the index doesn't exist, will return ths default value
+    :return: if index exists, will return the element of list in that index, otherwise default
+    """
     try:
         return l[idx]
     except IndexError:
@@ -199,9 +211,7 @@ def parse_arguments(parser):
                              "It will create the folder if it doesn't exist.")
 
     logging.basicConfig(level=logging.DEBUG, format='%(levelname)s\t%(message)s')
-
     parser.print_help()
-
     options = parser.parse_args()
 
     return options
@@ -224,13 +234,7 @@ def main():
 
     cruncher = TechCrunchScraper(start_date=options.start_date,
                                  end_date=options.end_date)
-
-    cruncher.get_address()
-    if cruncher.pages_to_scrape is None:
-        return
-    cruncher.get_article_links()
-    cruncher.scrape_article_page()
-    cruncher.save_to_csv()
+    cruncher.process()
 
     return
 
