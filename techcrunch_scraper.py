@@ -29,7 +29,7 @@ from bs4 import BeautifulSoup as bs
 from bs4 import SoupStrainer
 
 TCRUNCH = 'https://techcrunch.com/'
-
+DEFAULT_FILE = 'company_info.csv'
 
 class TechCrunchScraper(object):
     """
@@ -53,9 +53,9 @@ class TechCrunchScraper(object):
         """
         Get the list of addresses for the dates requested
         """
-        # If no start date is set, take the date a month prior to current date and download for the previous month
+        # If no start date is set, take the date a day prior to current date and download for the previous day
         if self.start_date is None:
-            self.start_date = (datetime.now() - relativedelta.relativedelta(months=1))
+            self.start_date = datetime.now() - relativedelta.relativedelta(days=1)
         else:
             try:
                 self.start_date = datetime.strptime(self.start_date, '%Y-%m-%d')
@@ -63,7 +63,7 @@ class TechCrunchScraper(object):
                 print 'Start date is not in correct format. Reverting to default date.'
 
         if self.end_date is None:
-            self.end_date = datetime.now()
+            self.end_date = datetime.now() - relativedelta.relativedelta(days=1)
         else:
             try:
                 self.end_date = datetime.strptime(self.end_date, '%Y-%m-%d')
@@ -119,7 +119,8 @@ class TechCrunchScraper(object):
         For each article link, find the company info
         """
         for article_link in self.article_links:
-            self.get_company_info(article_link)
+            company_info = self.get_company_info(article_link)
+            self.companies_df = self.companies_df.append(company_info, ignore_index=True)
 
     @staticmethod
     def get_company_info(link):
@@ -128,24 +129,50 @@ class TechCrunchScraper(object):
         :param link: link to each article
         :return: list of company info
         """
+        company_info = {}
         br = mechanize.Browser()
+
+        print "Company info on article: %s" % link
+
         br.open(link)
         page_html = br.response().read()
-        soup = bs(page_html, 'html.parser', parse_only=SoupStrainer('li', {'class': 'data-card crunchbase-card active'}))
-        for element in soup:
-            if element.has_attr('cb-card-title-link'):
-                print element
+
+        # soup = bs(page_html, 'html.parser', parse_only=SoupStrainer('li', {'class': 'data-card crunchbase-card active'}))
+        soup = bs(page_html, 'html.parser')
+
+        company_info['article title'] = soup.find('h1', {'class': 'alpha tweet-title'}).text
+        company_info['article url'] = link
+
+        company_name_container = soup.find('a', {'class': 'cb-card-title-link'})
+        if company_name_container is not None:
+            company_info['company name'] = company_name_container.text.lstrip().rstrip()
+
+        company_website_element = safe_list_get(soup.find_all('strong', string='Website'), 0, None)
+        if company_website_element is not None:
+            try:
+                company_info['company website'] = company_website_element.next_sibling.next_sibling.contents[1]['href']
+            except IndexError:
+                company_info['company website'] = company_website_element.next_sibling.next_sibling.contents[0]['href']
+        else:
+            company_info['company website'] = None
+
         br.close()
 
-        # return company_info
-        return
+        return company_info
 
     def save_to_csv(self):
         """
         save the dataframe to CSV
         :return: CSV file
         """
-        self.companies_df.to_csv()
+        self.companies_df.to_csv(DEFAULT_FILE, encoding='utf-8')
+
+
+def safe_list_get(l, idx, default):
+    try:
+        return l[idx]
+    except IndexError:
+        return default
 
 
 def parse_arguments(parser):
@@ -203,6 +230,7 @@ def main():
         return
     cruncher.get_article_links()
     cruncher.scrape_article_page()
+    cruncher.save_to_csv()
 
     return
 
